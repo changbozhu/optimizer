@@ -1,0 +1,7 @@
+NewtonMethods:
+    tolgrad: 1e-3
+    max_iters: 200
+    verbose: True
+    BFGS:  # only quasi Newton BFGS
+        init_grad_norm: 10
+    
