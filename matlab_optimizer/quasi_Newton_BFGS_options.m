@@ -5,7 +5,8 @@ function [ options_default ] = quasi_Newton_BFGS_options(varargin)
     
     % norm precision or minimal norm of the gradient, 
     % it should be close to 0.
-    options_default.tolgrad = 1e-4;   
+    options_default.tolgrad = 1e-4;
+    options_default.tolarg = 1e-3;
     % max iteration steps
     options_default.min_iters = 10;
     options_default.max_iters = 2000;
@@ -57,7 +58,11 @@ function [ options_default ] = quasi_Newton_BFGS_options(varargin)
         if isfield(options,'tolgrad')
             options_default.tolgrad = options.tolgrad;
         end
-
+        
+        if isfield(options,'tolarg')
+            options_default.tolarg = options.tolarg;
+        end
+        
         if isfield(options,'c1')
             options_default.c1 = options.c1;
         end
@@ -103,28 +108,28 @@ function [ options_default ] = quasi_Newton_BFGS_options(varargin)
         options = varargin{1};
         if isfield(options,'evalGradOpts')
             evalGradOpts = options.evalGradOpts;
-            if isfield(options,'init_eps')
+            if isfield(evalGradOpts,'init_eps')
                 evalGradOpts_default.init_eps = evalGradOpts.init_eps;
             end
             
-            if isfield(options,'ratio')
-                evalGradOpts_default.ratio = options.ratio;
+            if isfield(evalGradOpts,'ratio')
+                evalGradOpts_default.ratio = evalGradOpts.ratio;
             end
             
-            if isfield(options,'min_steps')
-                evalGradOpts_default.min_steps = options.min_steps;
+            if isfield(evalGradOpts,'min_steps')
+                evalGradOpts_default.min_steps = evalGradOpts.min_steps;
             end
             
-            if isfield(options,'max_steps')
-                evalGradOpts_default.max_steps = options.max_steps;
+            if isfield(evalGradOpts,'max_steps')
+                evalGradOpts_default.max_steps = evalGradOpts.max_steps;
             end
             
-            if isfield(options,'threshold')
-                evalGradOpts_default.threshold = options.threshold;
+            if isfield(evalGradOpts,'threshold')
+                evalGradOpts_default.threshold = evalGradOpts.threshold;
             end
             
-            if isfield(options,'tolerance')
-                evalGradOpts_default.tolerance = options.tolerance;
+            if isfield(evalGradOpts,'tolerance')
+                evalGradOpts_default.tolerance = evalGradOpts.tolerance;
             end
         end
     end

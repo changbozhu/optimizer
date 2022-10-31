@@ -34,12 +34,11 @@ function [deriv, min_err] = evalscarlarderiv(phi, varargin)
     warning off;
     % result
     deriv           = NaN;
-    evalderiv_options_func = str2func('evalderiv_options');
-    if nargin > 2
+    if nargin > 1
         options = varargin{1};
-        options = evalderiv_options_func(options);
+        options = evalderiv_options(options);
     else
-        options = evalderiv_options_func();
+        options = evalderiv_options();
     end
         
     % upacking parameters    

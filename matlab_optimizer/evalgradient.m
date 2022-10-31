@@ -39,7 +39,7 @@ function [grad, min_err] = evalgradient(f, x, varargin)
         options = evalgradient_options();
     end    
     
-    % Check if f and x match
+    % Check if f and x match    FrE = f(x)
     try
         FrE = f(x);
         if isinf(FrE) || isnan(FrE)
@@ -57,7 +57,7 @@ function [grad, min_err] = evalgradient(f, x, varargin)
             % Construct filehandle to be passed to eval
             phi_eps = @(eps) phi(eps,f,x,ei);        
             % Calculate derivative
-            [grad(i), min_err(i)] = evalscarlarderiv(phi_eps,options);            
+            [grad(i), min_err(i)] = evalscarlarderiv(phi_eps,options);         
         end
         %closematlabpool;
     else
@@ -78,4 +78,5 @@ function y = phi(eps,f,x,p)
     x = reshape(x,d,1);
     p = reshape(p,d,1);
     y = f(x + eps*p);
+    
 end

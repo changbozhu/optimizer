@@ -145,7 +145,7 @@ for i = 1:maxIter
             disp(' ')
             disp('Warning: optimization terminated because the maximum number of iterations is reached.')
         end
-        continue;
+        continue
     end
     
     if verbose

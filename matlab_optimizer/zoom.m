@@ -10,7 +10,7 @@ function [ alpha_star ] = zoom(alpha_lo,alpha_hi,zoomPara)
     DPhi_0 = zoomPara.dphi0;
     Phi_0  = phi(obj_func, xk, pk, 0);
     Phi_lo = phi(obj_func, xk, pk, alpha_lo);
-    iterINF = 30;
+    iterINF = 5;
     zoomiter = 0;
     interp_func = str2func(interp_method);
     while zoomiter<iterINF

@@ -60,19 +60,37 @@ function [ argMinVal, optims] = quasi_Newton_BFGS(obj, opt_vars0, varargin)
     max_iters  = options.max_iters;
     verbose    = options.verbose;
     step_mode  = options.step_mode;
+    
+    
     if verbose
         disp('  ')
         disp('Optimization Package is coded by Changbo Zhu.')
         disp(['-quasi_Newton_BFGS: '  datestr(now,'yyyy-mm-dd HH:MM:SS')])
     end
+    
+    % Make sure init is a column vector
+    if ~iscolumn(opt_vars0)
+        opt_vars0 = opt_vars0';
+        if ~iscolumn(opt_vars0)
+            error('Initial point has to be a row vector.');
+        end
+    end
+    
     tstart = tic;
     if evalGradOpts.mpi
         startmatlabpool;
     end
+    
     xk = opt_vars0;
     obj_fk  = obj.obj_func(xk);
-    grad = obj.obj_grad(xk);
     
+    if verbose
+        disp(' ')
+        disp(['Initial argument: ', num2str(xk')])
+        disp(['Initial value: ' num2str(obj_fk)])
+    end
+    
+    grad = obj.obj_grad(xk);
     slope = - grad'*grad;
     
     dims = length(xk) ;
@@ -98,7 +116,7 @@ function [ argMinVal, optims] = quasi_Newton_BFGS(obj, opt_vars0, varargin)
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %-------------Start the quasi-Newton Method with BFGS--------------------
     tolgrad= options.tolgrad;
-        
+    tolarg= options.tolarg;  
         
     %---------Initialize inverse Hessian approximation B0-----------        
     % the initial matrix B0 often is set to some mutiple beta*I of the
@@ -109,14 +127,30 @@ function [ argMinVal, optims] = quasi_Newton_BFGS(obj, opt_vars0, varargin)
     % to achieve this norm.
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     delta = 1 ;               % Give the norm of the first step
-    beta  = delta/(norm(grad));
+    norm_grad = norm(grad);
+    if norm_grad ==0
+        norm_grad = 1;
+    end
+    beta  = delta/norm_grad;
     Bk = beta * I ;            % Generate the initial inverse Hessian 
                                % approximation
          
     % Do loop 
-    newton_iter = 0;         
-    while (( norm(grad) > tolgrad )&&( newton_iter <= max_iters )) || ( newton_iter <= min_iters )
-        disp(['Current norm of gradient is ' num2str(norm(grad)) '.'])
+    %newton_iter = 0;
+    converged_flag = 0; % 0--max_iter, 1-- tolgrad, 2-- tolarg
+ 
+    for newton_iter = 1:max_iters  %(( norm(grad) > tolgrad )&&( newton_iter <= max_iters )) || ( newton_iter <= min_iters )
+        if ( newton_iter > min_iters ) && max(...
+            abs(grad')*max(abs(xk),1)./max(abs(obj_fk),1)...
+            ) < tolgrad && max(abs(grad))<tolgrad
+            if verbose
+                disp(' ')
+                disp('Converged on gradient size')
+            end
+            converged_flag = 1;
+            break;
+        end
+        
         if newton_iter == max_iters
             disp('  ')
             disp('Please notice:')
@@ -125,62 +159,39 @@ function [ argMinVal, optims] = quasi_Newton_BFGS(obj, opt_vars0, varargin)
             argMinVal = xk;
             minGrad   = grad;
         end
-        % Compute the descent direction 
+        % Compute the descent direction
         pk = - Bk * grad;
         %disp(['norm_pk='  num2str(norm(pk)) '; slope=' num2str(pk'*grad) ]
-        
-        
         if strcmpi(step_mode, 'regstep') 
-             
-            % Limit step size
-            alpha_max = options.alpha_max;
-            max_reg_iters = options.max_reg_iters;
-            pk_norm = sqrt(pk'*pk);
-            if  pk_norm > alpha_max
-               pk =  alpha_max/pk_norm * pk;
-            end
-            
-            % Move in the descent direction, looping through regularizations
-            alpha_netwon_iter = 0.96^floor(newton_iter / 5 )* alpha_max;
-            delta_obj = NaN(1, max_reg_iters);
-            for reg_iters = 1: max_reg_iters        
-                % Begin with alpha=1 and halve on each step
-                alpha     = alpha_netwon_iter / reg_iters;
-                xk1     = xk + alpha*pk;
-                obj_fk1   = obj.obj_func(xk1);
-                delta_obj(1,reg_iters) = obj_fk1 - obj_fk;
-                
-%                 % Stop if the new value is sufficiently smaller
-%                 if delta_obj < 0%1e-10*alpha*slope
-%                     delta_obj =delta_obj 
-%                     break;
-%                 end
-            end
-            
-            % Update point and value if regularizations have not been exhausted;
-            % otherwise, reset and start again with x as the new init.           
-            [delta_obj_min, idx] = min(delta_obj);
-            alpha = alpha_netwon_iter / idx;
-            redu_th = 1e-8 *alpha*slope;
-            if delta_obj_min < redu_th               
-                xk     = xk + alpha*pk;
-                obj_fk = obj.obj_func(xk);
-            else
-                Bk    = eye(length(xk));
-                pk    = - Bk*grad;
-                slope = grad'*pk;
-                %continue;
-            end
-        elseif strcmpi(step_mode, 'linsearch')
+            disp('This mode is developing...')
+        elseif strcmpi(step_mode, 'linsearch') || strcmpi(step_mode, 'linesearch') 
             alpha =  Linesearch(obj.obj_func, xk, pk, obj.obj_grad, options );
-            xk = xk + alpha*pk;
         elseif strcmpi(step_mode, 'fix')
             alpha =1;
-            xk = xk + alpha*pk;
         end
         
+        dx=alpha*pk;
         
+        if verbose
+            disp(['---quasi Newton BFGS Iteration:' num2str(newton_iter)])
+            disp(['The norm of the current gradient ' num2str(norm(grad))])
+            %disp(grad)
+            disp(['Current step size: alpha=' num2str(alpha)])
+            disp('dx=')
+            disp(dx)
+        end
         
+        % Test for convergence
+        if ( newton_iter > min_iters ) && (max(abs(dx)./abs(max(xk,1))) < tolarg)
+            if verbose
+                disp(' ')
+                disp('Converged on step size')
+            end
+            converged_flag = 2;
+            break;
+        end
+        
+        xk = xk + dx;
         grad_old = grad;
         grad = obj.obj_grad(xk);
           
@@ -208,18 +219,25 @@ function [ argMinVal, optims] = quasi_Newton_BFGS(obj, opt_vars0, varargin)
              Bk = coff * I ;
         end             
                           
-        Bk = bfgs_eq(sk , yk , Bk);
-        newton_iter=newton_iter+1;
-              
-   end  % end(while)
-    
-   if norm(grad) < tolgrad
-          argMinVal = xk;
-          minGrad   = grad;
-          if verbose
-              disp(['    -Converged at the ' num2str(newton_iter) 'th iteration.'])
-              disp(['    -The norm of gradient at terminated point is ' num2str(norm(grad)) '<' num2str(tolgrad)  '.'])
-          end
+        Bk = bfgs_eq(sk , yk , Bk);              
+   end  % end(for-loop)
+   
+   
+   
+   if converged_flag ==1
+        argMinVal = xk;
+        minGrad   = grad;
+        if verbose
+            disp(['    -Converged at the ' num2str(newton_iter) 'th iteration.'])
+            disp(['    -The norm of gradient at terminated point is ' num2str(max(abs(grad))) '<' num2str(tolgrad)  '.'])
+        end
+   elseif converged_flag ==2
+       argMinVal = xk;
+       minGrad   = grad;
+       if verbose
+            disp(['    -Converged at the ' num2str(newton_iter) 'th iteration.'])
+            disp(['    -The difference of arguments at terminated point is ' num2str(max(abs(dx))) '<' num2str(tolarg)  '.'])
+       end
    end
    telapse = toc(tstart);
    if verbose
